@@ -5900,9 +5900,19 @@ function syncTopbar(){
   if(typeof syncWorkspaceDisplays==='function') syncWorkspaceDisplays();
   if(typeof syncTerminalButton==='function') syncTerminalButton();
   // modelSelect already set above
-  // Update profile chip label
+  // Update profile chip label.
+  // The chip is the profile-SWITCHER trigger (it fronts the profile dropdown) and
+  // governs where the next message / new chat routes — both follow the client
+  // active profile (the hermes_profile cookie, set only by /api/profile/switch).
+  // It must therefore reflect S.activeProfile, NOT the loaded session's profile.
+  // #3331 briefly keyed this on S.session.profile so the label would track the
+  // session being browsed, but loadSession() never updates S.activeProfile, so
+  // opening a cross-profile session made the chip disagree with the dropdown
+  // checkmark and lie about message routing (#3635). #3331's legitimate work —
+  // scoping project/session operations to the session's own profile — is
+  // unaffected by this line.
   const profileLabel=$('profileChipLabel');
-  if(profileLabel) profileLabel.textContent=(S.session&&S.session.profile)||S.activeProfile||'default';
+  if(profileLabel) profileLabel.textContent=S.activeProfile||'default';
 }
 
 function msgContent(m){

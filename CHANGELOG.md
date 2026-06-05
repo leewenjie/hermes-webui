@@ -3,6 +3,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **The composer profile chip again reflects the active profile, not the loaded session's profile.** After #3331 (v0.51.204) the chip label keyed on the *browsed session's* profile, but the chip is the profile-switcher trigger and message/new-chat routing follow the client *active* profile (the `hermes_profile` cookie, set only by `/api/profile/switch`). Since `loadSession()` never updates `S.activeProfile`, opening a session that belongs to a different profile made the chip disagree with the dropdown checkmark and misrepresent where the next message would route. The chip label in `syncTopbar()` now reads `S.activeProfile` in both branches; #3331's project/session-operation profile scoping is unaffected. (#3635)
+
 ## [v0.51.264] — 2026-06-04 — Release IF (stage-r14 — sidebar cron-overflow + messaging source labels, un-held)
 
 ### Fixed
