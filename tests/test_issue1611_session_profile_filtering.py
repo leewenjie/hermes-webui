@@ -259,7 +259,7 @@ def test_get_session_rejects_session_from_inactive_profile():
         return captured["json"]
 
     parsed = urlparse("/api/session?session_id=foreign_001&messages=1&resolve_model=0")
-    with patch("api.profiles.get_active_profile_name", return_value="default"), \
+    with patch("api.routes._get_active_profile_name", return_value="default"), \
          patch("api.routes.get_session", return_value=_ProfileScopedSession()), \
          patch("api.routes._clear_stale_stream_state", return_value=False), \
          patch("api.routes._lookup_cli_session_metadata", return_value={}), \
@@ -270,6 +270,34 @@ def test_get_session_rejects_session_from_inactive_profile():
 
     assert captured.get("bad", {}).get("status") == 404
     assert "json" not in captured, "foreign-profile transcript must not be returned"
+
+
+def test_get_session_rejects_cli_session_from_inactive_profile():
+    """CLI fallback responses must use the same active-profile boundary."""
+    import api.routes as routes
+
+    captured = {}
+
+    def fake_bad(_handler, message, status=400, **_kwargs):
+        captured["bad"] = {"message": message, "status": status}
+        return captured["bad"]
+
+    def fake_j(_handler, data, status=200, **_kwargs):
+        captured["json"] = {"data": data, "status": status}
+        return captured["json"]
+
+    parsed = urlparse("/api/session?session_id=cli_foreign&messages=1&resolve_model=0")
+    with patch("api.routes._get_active_profile_name", return_value="default"), \
+         patch("api.routes.get_session", side_effect=KeyError), \
+         patch("api.routes.SESSION_INDEX_FILE", SimpleNamespace(exists=lambda: False)), \
+         patch("api.routes._lookup_cli_session_metadata", return_value={"profile": "other"}), \
+         patch("api.routes.get_cli_session_messages", return_value=[{"role": "user", "content": "foreign profile secret"}]), \
+         patch("api.routes.bad", side_effect=fake_bad), \
+         patch("api.routes.j", side_effect=fake_j):
+        routes.handle_get(SimpleNamespace(), parsed)
+
+    assert captured.get("bad", {}).get("status") == 404
+    assert "json" not in captured, "foreign-profile CLI transcript must not be returned"
 
 
 # ── Cleanup ────────────────────────────────────────────────────────────────

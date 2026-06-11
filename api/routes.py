@@ -182,7 +182,10 @@ def _visible_pinned_lineage_ids(session_rows) -> set[str]:
 # (mcp_server.py) can import it without duplicating the visibility model.
 # Re-exported here so existing `_profiles_match(...)` call sites in this
 # module keep resolving without per-call-site refactors.
-from api.profiles import _profiles_match  # noqa: F401, E402  (re-export)
+from api.profiles import (  # noqa: F401, E402  (re-export)
+    _profiles_match,
+    get_active_profile_name as _get_active_profile_name,
+)
 
 
 def _all_profiles_query_flag(parsed_url) -> bool:
@@ -5802,11 +5805,7 @@ def handle_get(handler, parsed) -> bool:
             _t1 = _time.monotonic()
             s = get_session(sid, metadata_only=(not load_messages))
             _session_profile = getattr(s, 'profile', None) or None
-            try:
-                from api.profiles import get_active_profile_name
-                _active_profile = get_active_profile_name()
-            except Exception:
-                _active_profile = "default"
+            _active_profile = _get_active_profile_name()
             if not _profiles_match(_session_profile, _active_profile):
                 return bad(handler, "Session not found", 404)
             original_stream_id = getattr(s, "active_stream_id", None)
@@ -6105,6 +6104,10 @@ def handle_get(handler, parsed) -> bool:
             if _was_webui_session:
                 return bad(handler, "Session not found", 404)
             cli_meta = _lookup_cli_session_metadata(sid)
+            _session_profile = (cli_meta or {}).get("profile") or None
+            _active_profile = _get_active_profile_name()
+            if not _profiles_match(_session_profile, _active_profile):
+                return bad(handler, "Session not found", 404)
             msgs = get_cli_session_messages(sid)
             if msgs:
                 sess = {
