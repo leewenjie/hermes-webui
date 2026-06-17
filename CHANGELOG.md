@@ -3,6 +3,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Large plain-text pastes in the composer now become `.md` attachments instead of flooding the textarea.** Pasting roughly 4,000+ characters or 80+ lines of plain text attaches a timestamped `pasted-text-*.md` file through the existing upload tray, while normal short text pastes, oversized pastes, and image pastes keep their existing behavior.
+
 ## [v0.51.482] — 2026-06-17 — Release QR (archived cron sessions stay hidden)
 
 ### Fixed
