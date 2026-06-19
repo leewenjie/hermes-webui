@@ -88,8 +88,14 @@ class TestIsolatedProfileModeDetection:
                     isolated = _is_isolated_profile_mode()
                     assert isolated is True, f"Expected isolated mode for {temp_single_profile}"
 
-    def test_hermes_base_home_override_forces_normal_mode(self, temp_single_profile):
-        """HERMES_BASE_HOME env var override forces normal mode even with profile subdir."""
+    def test_hermes_base_home_does_not_disable_isolation(self, temp_single_profile):
+        """HERMES_BASE_HOME must NOT disable isolation for a profiles/<name> path.
+
+        Regression for #4454: HERMES_BASE_HOME "normally points at the base home
+        already" in ordinary deployments, so using it as an opt-out silently
+        disabled isolation for a legitimately-isolated HERMES_HOME. Isolation is
+        now derived solely from the HERMES_HOME path shape.
+        """
         base_home = temp_single_profile.parent.parent
         with mock.patch.dict(
             os.environ,
@@ -101,7 +107,10 @@ class TestIsolatedProfileModeDetection:
             with mock.patch("api.profiles._DEFAULT_HERMES_HOME", base_home):
                 with mock.patch("api.profiles._INITIAL_HERMES_HOME", str(temp_single_profile)):
                     isolated = _is_isolated_profile_mode()
-                    assert isolated is False
+                    assert isolated is True, (
+                        "HERMES_BASE_HOME must not turn off isolation for a "
+                        "profiles/<name>-shaped HERMES_HOME (#4454)"
+                    )
 
 
 class TestListProfilesInIsolatedMode:
@@ -271,6 +280,33 @@ class TestIsolatedRuntimePinning:
 
         assert get_active_profile_name() == "default"
         assert get_active_hermes_home() == isolated_default
+
+    def test_explicit_profile_resolution_for_isolated_default_uses_pinned_home(self, temp_hermes_home, monkeypatch):
+        """get_hermes_home_for_profile('default') must resolve to the isolated home.
+
+        Regression for #4454: streaming/helpers resolve session.profile via
+        get_hermes_home_for_profile(name). When the isolated profile is literally
+        named 'default' (HERMES_HOME=<base>/profiles/default), that call used to
+        hit the root-alias branch and collapse to <base>, so the worker read the
+        wrong config/env/state. It must now return the pinned profile home.
+        """
+        from api.profiles import get_hermes_home_for_profile, _resolve_profile_home_for_name
+
+        isolated_default = temp_hermes_home / "profiles" / "default"
+        isolated_default.mkdir()
+        for subdir in ["memories", "sessions", "skills", "skins", "logs", "plans", "workspace", "cron"]:
+            (isolated_default / subdir).mkdir(exist_ok=True)
+
+        monkeypatch.setenv("HERMES_HOME", str(isolated_default))
+        monkeypatch.setattr(_profiles_mod, "_DEFAULT_HERMES_HOME", temp_hermes_home)
+        monkeypatch.setattr(_profiles_mod, "_INITIAL_HERMES_HOME", str(isolated_default))
+
+        # Both the explicit resolver and its public wrapper must return the
+        # pinned home, NOT the base home (which is what the root-alias branch
+        # would yield for the name 'default').
+        assert _resolve_profile_home_for_name("default") == isolated_default
+        assert get_hermes_home_for_profile("default") == isolated_default
+        assert get_hermes_home_for_profile("default") != temp_hermes_home
 
 
 class TestProfileMutationsInIsolatedMode:
