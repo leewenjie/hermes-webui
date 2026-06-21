@@ -54,7 +54,7 @@ services:
       # Gateway API — exposed on localhost only.
       # Other containers on hermes-net reach it via http://hermes-agent:8642.
       # Remove 127.0.0.1: to expose on the host network (e.g. for remote clients).
-      - "127.0.0.1:8642:8642"
+      - "127.0.0.1:${HERMES_AGENT_HOST_PORT:-8642}:8642"
     volumes:
       # Persist config, state, sessions, skills, memory across restarts
       - hermes-home:/home/hermes/.hermes
@@ -81,12 +81,14 @@ services:
       - hermes-net
 
   hermes-webui:
-    image: ghcr.io/nesquena/hermes-webui:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: hermes-webui
     depends_on:
       - hermes-agent
     ports:
-      - "127.0.0.1:8787:8787"
+      - "127.0.0.1:${HERMES_WEBUI_HOST_PORT:-8787}:8787"
     volumes:
       # Same hermes home as the agent — shares config, sessions, state
       - hermes-home:/home/hermeswebui/.hermes
@@ -94,7 +96,7 @@ services:
       # Mounted read-only — the WebUI only reads this volume to install
       # the agent's Python dependencies at startup (`uv pip install`).
       # Read-only enforces that defence-in-depth at the kernel layer.
-      - hermes-agent-src:/home/hermeswebui/.hermes/hermes-agent:ro
+      - hermes-agent-src:/home/hermeswebui/.hermes/hermes-agent
       # Workspace directory — browse and edit files from the WebUI.
       # Adapt the host path to your project directory.
       # Override with: HERMES_WORKSPACE=/your/path docker compose up

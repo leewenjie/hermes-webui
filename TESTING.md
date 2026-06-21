@@ -13,6 +13,45 @@
 >
 > Local regression focus: verify that a previously closed workspace panel stays visually closed from first paint through boot completion on desktop refresh; there should be no brief open-then-close flash.
 
+## Real Hermes home + Azure Foundry readiness proof
+
+For the validated local pairing on this machine:
+
+- WebUI repo: `/home/azureuser/workspace/hermes-webui`
+- Agent repo: `/home/azureuser/workspace/hermes-agent`
+- Hermes home: `/home/azureuser/.hermes`
+
+use the following operator flow to confirm the real SaaS/backend pairing is ready.
+
+### Launch the WebUI against the real Hermes home
+
+```bash
+HERMES_HOME=/home/azureuser/.hermes \
+HERMES_WEBUI_STATE_DIR=/tmp/hermes-webui-final-check \
+HERMES_WEBUI_PORT=8792 \
+HERMES_WEBUI_AGENT_DIR=/home/azureuser/workspace/hermes-agent \
+HERMES_WEBUI_PYTHON=/home/azureuser/.hermes/hermes-agent/venv/bin/python \
+python3 bootstrap.py --no-browser
+```
+
+### Run the read-only readiness probe
+
+```bash
+python3 scripts/check_real_home_azure_readiness.py --port 8792
+```
+
+Expected summary:
+
+- `health.status == "ok"`
+- `onboarding.provider_configured == true`
+- `onboarding.provider_ready == true`
+- `onboarding.chat_ready == true`
+- `onboarding.setup_state == "ready"`
+- `onboarding.current_provider == "azure-foundry"`
+- `onboarding.current_model == "gpt-5.4-mini"`
+
+This probe is intentionally read-only and prints no secrets.
+
 ---
 
 ## Static JS runtime lint (brick-class regression guard)
